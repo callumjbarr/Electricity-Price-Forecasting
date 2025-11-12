@@ -2,7 +2,7 @@
 
 In this project I develop and back test a forecasting model that predicts the wholesale electricity price for the upper North Island of New Zealand
 
-I am doing this from a financial market’s perspective. Using daily data, I averaged the price for the month. This was I can forecast the next months price. An accurate forecast can be useful to participants buying/selling futures and forward contracts. 
+I am doing this from a financial market’s perspective. Using daily data, I averaged the price for the month. This was so I can forecast the next months price. An accurate forecast can be useful to participants buying/selling futures and forward contracts. 
 Alongside using auto regressive features (past price affect on future price) I have selected some additional explanatory variables see if they are able to improve the model. These are supply and demand related, and include the following:
 
 Supply:
