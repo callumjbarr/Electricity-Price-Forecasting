@@ -7,8 +7,10 @@ Alongside using auto regressive features (past price affect on future price) I h
 
 Supply:
 o	Controlled storage – Hydro makes up approximately 60% of generation, when storage is low during low rain conditions prices are expected to rise. 
+
 o	Gas – Is typically used as a back up supply, so if gas production increases there may be a supply shortage indicating an increase in price.
 
 Demand:
 o	Dummy variable for winter months: power demand is typically higher in winter months (Jun – August)
+
 o	Monthly National Demand 
