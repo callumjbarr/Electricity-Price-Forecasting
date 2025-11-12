@@ -1,0 +1,124 @@
+import pandas as pd
+import statsmodels.api as sm
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.ar_model import AutoReg
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+#from pmdarima.arima import auto_arima
+from statsforecast import StatsForecast
+from statsforecast.models import AutoARIMA
+
+# import data from csv
+path = 'C:/Users/xx/OneDrive/Documents/4 - Projects/Electricity Cointegration/hydroDataFinal.csv'
+data = pd.read_csv(path)
+
+path2 = 'C:/Users/xx/OneDrive/Documents/4 - Projects/Electricity Cointegration/Gas data/testing.csv'
+lmdata = pd.read_csv(path2)
+# convert date column to date format
+data['date'] = pd.to_datetime(data['date'], dayfirst=True)
+data.set_index('date', inplace=True)
+
+
+monthlyData = pd.DataFrame()
+monthlyData['priceUNI'] = data['priceUNI'].resample('ME').mean()
+#monthlyData['storage'] = data['controlledStorage'].resample('ME').mean()
+
+# Stationary check - forecasting requires no trend
+dailystationaryTestPrice = adfuller(data['priceUNI'])
+monthlystationaryTestPrice = adfuller(monthlyData['priceUNI'])
+gas = adfuller(lmdata['Gassupply'])
+
+# daily price plot
+plt.plot(data['priceUNI'],  color='darkblue')
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.xlabel('Date')
+plt.ylabel('Price $/MWh')
+plt.title('Daily NZ Upper North Island Wholesale Price')
+plt.show()
+
+# monthly price plot
+plt.plot(monthlyData['priceUNI'], label='Monthly: Upper North Island Price', color='darkblue')
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.xlabel('Date')
+plt.ylabel('Price $/MWh')
+plt.title('Monthly NZ Upper North Island Wholesale Price')
+plt.show()
+
+# monthly storage plot
+plt.plot(data['controlledStorage'],  color='darkblue')
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+plt.xlabel('Date')
+plt.ylabel('Storage GWh')
+plt.title('Controlled Storage')
+plt.show()
+
+# if p-value <0.05 then data is stationary
+print(f"p-value for price stationarity test: {dailystationaryTestPrice[1]}")
+print(f"p-value for price stationarity test: {monthlystationaryTestPrice[1]}")
+print(f"p-value for gas stationarity test: {gas[1]}")
+
+# forcast horizon
+h = 4
+numTests = 1
+testCount = 0
+
+
+maxTrainEnd = len(monthlyData) - h
+minTrainEnd = maxTrainEnd - numTests
+
+resultsDf = pd.DataFrame(columns=['run', 'date', 'model', 'forecast', 'actual'])
+allforecasts = pd.DataFrame()
+
+
+for i in range(minTrainEnd, maxTrainEnd):
+    trainDf = monthlyData.iloc[0:i+1,]
+    testDf = monthlyData.iloc[i+1:i+h+1]
+    testCount = testCount+1
+
+    trainDs = trainDf
+    trainDs = trainDf.reset_index()
+    trainDs.columns= ['ds', 'y']
+    trainDs['unique_id'] = 'UNIprice'
+    trainDs = trainDs[['unique_id','ds', 'y']]
+
+    # AR model
+    ARmodel = AutoReg(trainDf['priceUNI'], lags = 12)
+    ARfit = ARmodel.fit()
+    print(ARfit.summary())
+    ARpred = ARfit.predict(start = len(trainDf), end = len(trainDf)+h-1)
+
+    arimaModel = StatsForecast(
+        models=[AutoARIMA(season_length=12,approximation=True)],
+        freq='ME',
+    )
+    arimaModel.fit(trainDs)
+    arimaPred = arimaModel.predict(h=h, level=[95])
+
+
+
+    # add all forecasts
+    rowData = pd.DataFrame({
+        'date': [testDf.index[h-1]],
+        'run': testCount,
+        'actual': [testDf.priceUNI[h-1]],
+        'ARpred': ARpred.iloc[h-1],
+        'autoARIMA': arimaPred['AutoARIMA'].iloc[h-1],
+    })
+
+    allforecasts = pd.concat([allforecasts, rowData])
+
+
+
+
+Y = lmdata['priceUNI']
+X = lmdata[['storage', 'storageL2']]
+
+X = sm.add_constant(X)
+lmModel = sm.OLS(Y, X).fit()
+
+print(lmModel.summary())
